@@ -27,6 +27,7 @@ export default createStore({
   // 子模块
   modules: {
     aCount: {
+      namespaced: true,
       state: {
         count: 0
       },
@@ -37,6 +38,7 @@ export default createStore({
       },
       modules: {
         cCount: {
+          namespaced: true,
           state: {
             count: 0
           },
@@ -49,6 +51,7 @@ export default createStore({
       }
     },
     bCount: {
+      namespaced: true,
       state: {
         count: 0
       },

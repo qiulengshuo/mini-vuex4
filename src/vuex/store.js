@@ -12,6 +12,8 @@ function installModule (store, rootState, path, module) {
   // 数组为空，为 根module
   let isRoot = !path.length
 
+  const namespaced = store._modules.getNamespaced(path)
+
   // 安装 state
   // state: {
   //   xxx: xxx,
@@ -28,14 +30,14 @@ function installModule (store, rootState, path, module) {
 
   // 安装 getters
   module.forEachGetter((getter, key) => {
-    store._wrappedGetters[key] = () => {
+    store._wrappedGetters[namespaced + key] = () => {
       return getter(getNestedState(store.state, path))
     }
   })
 
   // 安装 mutations
   module.forEachMutation((mutation, key) => {
-    const entry = store._mutations[key] || (store._mutations[key] = [])
+    const entry = store._mutations[namespaced + key] || (store._mutations[namespaced + key] = [])
     entry.push((payload) => {
       mutation.call(store, getNestedState(store.state, path), payload)
     })
@@ -43,7 +45,7 @@ function installModule (store, rootState, path, module) {
 
   // 安装 actions
   module.forEachAction((action, key) => {
-    const entry = store._actions[key] || (store._actions[key] = [])
+    const entry = store._actions[namespaced + key] || (store._actions[namespaced + key] = [])
     entry.push((payload) => {
       let res = action.call(store, store, payload)
       if (!isPromise(res)) {

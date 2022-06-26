@@ -11,6 +11,7 @@ export default class Module {
     this._raw = rawModule
     this.state = rawModule.state
     this._children = {}
+    this.namespaced = rawModule.namespaced
   }
   // 添加 children  
   addChild (key, module) {

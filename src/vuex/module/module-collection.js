@@ -57,4 +57,13 @@ export default class ModuleCollection {
     }
     return newModule
   }
+  getNamespaced (path) {
+    // [aCount, cCount]
+    // aCount/cCount
+    let module = this.root
+    return path.reduce((namespaceStr, key) => {
+      module = module.getChild(key)
+      return namespaceStr + (module.namespaced ? key + '/' : '')
+    }, '')
+  }
 }

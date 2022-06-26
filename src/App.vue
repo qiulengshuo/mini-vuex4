@@ -12,7 +12,9 @@
 
   子模块的 count : {{aCount}} {{bCount}} {{cCount}}
 
-  还没有实现命名空间之前，add 导致同时加一。
+  <button @click="$store.commit('aCount/add', 1)">改a</button>
+  <button @click="$store.commit('bCount/add', 1)">改b</button>
+  <button @click="$store.commit('aCount/cCount/add', 1)">改c</button>
   
 </template>
 <script>
