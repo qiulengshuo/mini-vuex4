@@ -1,4 +1,4 @@
-import { reactive } from "vue"
+import { reactive, watch } from "vue"
 import { storeKey } from "./injectKey"
 import ModuleCollection from "./module/module-collection"
 import { forEachValue, isPromise } from "./until"
@@ -25,7 +25,9 @@ function installModule (store, rootState, path, module) {
     let parentState = path.slice(0, -1).reduce((state, key) => {
       return state[key]
     }, rootState)
-    parentState[path[path.length - 1]] = module.state
+    store._withCommit(() => {
+      parentState[path[path.length - 1]] = module.state
+    })
   }
 
   // 安装 getters
@@ -72,9 +74,28 @@ function resetStoreState (store, state) {
       get: getter
     })
   })
+
+  // 严格模式下，监控 state 的变化，只有触发 mutation 的同步操作，才不断言。
+  if (store.strict) {
+    enableStrictMode(store)
+  }
+}
+
+function enableStrictMode (store) {
+  watch(() => store._state.data, () => {
+    debugger
+    console.assert(store._commiting, 'do not mutate vuex store state outside mutation handlers or async')
+  }, { deep: true, flush: 'sync' })
 }
 
 export default class Store {
+  // 用于检查当前的 mutation 是不是同步的
+  _withCommit (fn) {
+    const commiting = this._commiting
+    this._commiting = true
+    fn()
+    this._commiting = commiting
+  }
   constructor(options) {
     const store = this
 
@@ -90,12 +111,43 @@ export default class Store {
     store._mutations = Object.create(null)
     store._actions = Object.create(null)
 
+    // 开启严格模式
+    this.strict = options.strict || false
+    // 只允许同步的 mutation
+    this._commiting = false
+
     const state = store._modules.root.state
     // 安装模块
     installModule(store, state, [], store._modules.root)
     // 设置 store._state 和 store.getters
     resetStoreState(store, state)
-    console.log(store)
+
+    store._subscribes = []
+    options.plugins.forEach(plugin => plugin(store))
+
+    
+  }
+  subscribe (fn) {
+    this._subscribes.push(fn)
+  }
+  replaceState (newState) {
+    // 严格模式下，不能直接修改 state
+    // 只能通过强制把 this._commiting 设为 true
+    this._withCommit(() => {
+      this._state.data = newState
+    })
+  }
+  registerModule (path, rawModule) {
+    const store = this
+    if (typeof path === 'string') {
+      path = [path]
+    }
+    // 生成 新模块
+    const newModule = store._modules.register(rawModule, path)
+    // 安装 state getters mutations actions
+    installModule(store, store.state, path, newModule)
+    // 重置 getters
+    resetStoreState(store, store.state)
   }
   // API: store.state
   get state () {
@@ -104,7 +156,10 @@ export default class Store {
   // API: store.commit(type, payload)
   commit = (type, payload) => {
     const entry = this._mutations[type] || []
-    entry.forEach(handler => handler(payload))
+    this._withCommit(() => {
+      entry.forEach(handler => handler(payload))
+    })
+    this._subscribes.forEach(sub => sub({ type, payload }, this.state))
   }
   // API: store.dispatch(type, payload)
   dispatch = (type, payload) => {
